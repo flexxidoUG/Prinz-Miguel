@@ -143,7 +143,7 @@ export function Team({ content }: { content: Content }) {
             <p className="kicker">Unser Prinzenteam</p>
             <h2 className="section-title">Ein Prinz. <em className="gold-text">Zwei Paginnen.</em></h2>
           </div>
-          <img className="tm-intro-photo" src={content.media.group} alt={`Gruppenportrait: ${laura.name}, ${miguel.name}, ${louisa.name}`} />
+          <img className="tm-intro-photo" src={content.media.group} alt={`Gruppenportrait: ${louisa.name}, ${miguel.name}, ${laura.name}`} />
         </div>
 
         <div className="tm-scene tm-scene--miguel">

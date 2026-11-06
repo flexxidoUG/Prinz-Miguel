@@ -1,10 +1,12 @@
 // Static SVG markup of the hero stage. show.ts animates it frame by frame.
-// Composition space: 1000 x 1000. Portrait (2:3) sits at x 290..710, y 95..725.
-export const P = { x: 290, y: 95, w: 420, h: 630 };
+// Composition space: 1000 x 1000. Portrait (2:3) sits in an arched portal at x 240..760, y 62..821.
+export const P = { x: 247, y: 62, w: 506, h: 759 };
+/** Image pixel (1024x1536 source) → stage coordinates. */
+export const px = (x: number, y: number): [number, number] => [P.x + (x / 1024) * P.w, P.y + (y / 1536) * P.h];
 
 type ElfProps = { id: string; c1: string; c2: string; hair: string; prop?: 'brush' | 'pole' };
 
-function Elf({ id, c1, c2, hair, prop }: ElfProps) {
+export function Elf({ id, c1, c2, hair, prop }: ElfProps) {
   const leg = (cls: string, x: number) => (
     <g transform={`translate(${x} -46)`}>
       <g className={cls}>
@@ -111,8 +113,28 @@ const shade = (hex: string) => {
 
 const star = 'M0 -10 C1.5 -2 2 -1.5 10 0 C2 1.5 1.5 2 0 10 C-1.5 2 -2 1.5 -10 0 C-2 -1.5 -1.5 -2 0 -10Z';
 
-/** Frame outline (outer rect minus portrait window), even-odd. */
-const FRAME = `M262 67 H738 V753 H262Z M${P.x} ${P.y} V${P.y + P.h} H${P.x + P.w} V${P.y}Z`;
+const R = P.w / 2, CY = P.y + R; // arch top: semicircle over the portrait width
+const arch = (inset: number) => {
+  const r = R + inset, x0 = P.x - inset, x1 = P.x + P.w + inset, y1 = P.y + P.h + inset;
+  return `M${x0} ${y1} V${CY} A${r} ${r} 0 0 1 ${x1} ${CY} V${y1}Z`;
+};
+const WINDOW = arch(0);
+/** Portal outline (outer arch minus portrait window), even-odd. */
+const FRAME = `${arch(26)} ${arch(0)}`;
+/** Marquee bulbs evenly spaced along the portal band. */
+const BULBS = (() => {
+  const r = R + 13, out: [number, number][] = [];
+  const side = P.h - R + 13, arc = Math.PI * r, total = side * 2 + arc, n = 46;
+  for (let i = 0; i < n; i++) {
+    let d = (i / (n - 1)) * total;
+    if (d < side) { out.push([P.x - 13, P.y + P.h + 13 - d]); continue; }
+    d -= side;
+    if (d < arc) { const a = Math.PI - d / r; out.push([500 + Math.cos(a) * r, CY - Math.sin(a) * r]); continue; }
+    out.push([P.x + P.w + 13, CY + (d - arc)]);
+  }
+  return out;
+})();
+const ROPE_Y = CY - Math.sqrt((R + 26) ** 2 - 170 ** 2);
 
 export function Stage({ group }: { group: string }) {
   return (
@@ -192,8 +214,18 @@ export function Stage({ group }: { group: string }) {
           <rect id="hs-full" x={P.x} y={P.y} width={P.w} height={P.h} fill="#fff" opacity="0" />
         </mask>
         <clipPath id="hs-clip">
-          <rect x={P.x} y={P.y} width={P.w} height={P.h} />
+          <path d={WINDOW} />
         </clipPath>
+        <radialGradient id="hs-halo" cx=".5" cy=".45" r=".5">
+          <stop offset="0" stopColor="#ffe6a8" stopOpacity=".55" />
+          <stop offset=".55" stopColor="#f3c25a" stopOpacity=".18" />
+          <stop offset="1" stopColor="#f3c25a" stopOpacity="0" />
+        </radialGradient>
+        <radialGradient id="hs-bulb">
+          <stop offset="0" stopColor="#fffbe8" />
+          <stop offset=".45" stopColor="#ffe08a" />
+          <stop offset="1" stopColor="#ffb83a" stopOpacity="0" />
+        </radialGradient>
       </defs>
 
       {/* floor */}
@@ -209,55 +241,63 @@ export function Stage({ group }: { group: string }) {
         ))}
       </g>
 
+      {/* backlight behind the portrait: halo + spots, so the faces stay crisp */}
+      <g id="hs-topspots" opacity="0">
+        <ellipse id="hs-halo-el" cx="500" cy="420" rx="470" ry="520" fill="url(#hs-halo)" />
+        <path d="M250 -60 L290 -60 L420 880 L60 880Z" fill="url(#hs-topcone)" />
+        <path d="M710 -60 L750 -60 L940 880 L580 880Z" fill="url(#hs-topcone)" />
+      </g>
+      <g id="hs-streamers" />
 
       {/* easel */}
       <g fill="url(#hs-wood)">
-        <path d="M330 700 l14 0 l-40 200 l-14 0z" />
-        <path d="M656 700 l14 0 l40 200 l-14 0z" />
-        <rect x="300" y="722" width="400" height="12" rx="3" />
+        <path d="M300 800 l14 0 l-34 100 l-14 0z" />
+        <path d="M686 800 l14 0 l34 100 l-14 0z" />
       </g>
 
-      {/* portrait: linen canvas, ghosted sketch, revealed original */}
-      <rect x={P.x} y={P.y} width={P.w} height={P.h} fill="#efe3c8" />
-      <image href={group} x={P.x} y={P.y} width={P.w} height={P.h} preserveAspectRatio="xMidYMid slice" filter="url(#hs-ghost)" />
-      <image id="hs-photo" href={group} x={P.x} y={P.y} width={P.w} height={P.h} preserveAspectRatio="xMidYMid slice" mask="url(#hs-mask)" />
-      <g id="hs-splat" clipPath="url(#hs-clip)" opacity="0">
-        <path d="M500 610 q30 -40 60 -10 q40 -10 30 30 q40 20 0 50 q10 40 -40 30 q-30 30 -60 0 q-50 10 -40 -40 q-40 -30 10 -50 q0 -30 40 -10z" fill="#f2c45a" />
-        <circle cx="610" cy="600" r="12" fill="#f2c45a" />
-        <circle cx="395" cy="700" r="9" fill="#f2c45a" />
-        <circle cx="540" cy="560" r="7" fill="#f2c45a" />
+      {/* portrait: linen canvas, ghosted sketch, revealed original – all clipped to the arch */}
+      <g clipPath="url(#hs-clip)">
+        <rect x={P.x} y={P.y} width={P.w} height={P.h} fill="#efe3c8" />
+        <image href={group} x={P.x} y={P.y} width={P.w} height={P.h} preserveAspectRatio="xMidYMid slice" filter="url(#hs-ghost)" />
+        <image id="hs-photo" href={group} x={P.x} y={P.y} width={P.w} height={P.h} preserveAspectRatio="xMidYMid slice" mask="url(#hs-mask)" />
+        <g id="hs-splat" opacity="0">
+          <path d="M500 630 q30 -40 60 -10 q40 -10 30 30 q40 20 0 50 q10 40 -40 30 q-30 30 -60 0 q-50 10 -40 -40 q-40 -30 10 -50 q0 -30 40 -10z" fill="#f2c45a" />
+          <circle cx="610" cy="620" r="12" fill="#f2c45a" />
+          <circle cx="395" cy="720" r="9" fill="#f2c45a" />
+          <circle cx="540" cy="580" r="7" fill="#f2c45a" />
+        </g>
       </g>
       <g id="hs-rings" fill="none" stroke="#ffe7a3" />
 
-      {/* frame (lowered from the rigging) */}
+      {/* portal (lowered from the rigging) */}
       <g id="hs-frame">
-        <line id="hs-ropes1" x1="300" y1="67" x2="300" y2="-1400" stroke="#c8a56a" strokeWidth="3" />
-        <line id="hs-ropes2" x1="700" y1="67" x2="700" y2="-1400" stroke="#c8a56a" strokeWidth="3" />
+        <line id="hs-ropes1" x1="330" y1={ROPE_Y} x2="330" y2="-1400" stroke="#c8a56a" strokeWidth="3" />
+        <line id="hs-ropes2" x1="670" y1={ROPE_Y} x2="670" y2="-1400" stroke="#c8a56a" strokeWidth="3" />
         <path d={FRAME} fill="url(#hs-framegrad)" fillRule="evenodd" />
         <path d={FRAME} fill="url(#hs-shine)" fillRule="evenodd" id="hs-shinepath" opacity="0" style={{ mixBlendMode: 'screen' }} />
-        <rect x="270" y="75" width="460" height="670" fill="none" stroke="#6b4714" strokeWidth="2" />
-        <rect x="277" y="82" width="446" height="656" fill="none" stroke="#fff3c4" strokeWidth="5" strokeDasharray="0 13" strokeLinecap="round" />
-        <rect x="286" y="91" width="428" height="638" fill="none" stroke="#5a3a0e" strokeWidth="3" />
-        {[[262, 67], [738, 67], [262, 753], [738, 753]].map(([x, y]) => (
-          <g key={`${x}${y}`} transform={`translate(${x} ${y})`}>
-            <circle r="22" fill="url(#hs-gold)" stroke="#6b4714" strokeWidth="1.5" />
-            <circle r="9" fill="url(#hs-gem)" />
-            <circle cx="-3" cy="-3" r="2.4" fill="#fff" opacity=".8" />
-          </g>
-        ))}
-        <g transform="translate(500 62)">
-          <path d="M-60 8 L-48 -28 L-24 -6 L0 -44 L24 -6 L48 -28 L60 8Z" fill="url(#hs-gold)" stroke="#6b4714" strokeWidth="1.5" />
-          <circle cy="-48" r="7" fill="url(#hs-gold)" />
-          <circle cx="-50" cy="-32" r="5.5" fill="url(#hs-gold)" />
-          <circle cx="50" cy="-32" r="5.5" fill="url(#hs-gold)" />
-          <circle cy="-6" r="9" fill="url(#hs-gem)" />
+        <path d={arch(26)} fill="none" stroke="#6b4714" strokeWidth="2" />
+        <path d={arch(3)} fill="none" stroke="#5a3a0e" strokeWidth="4" />
+        <g className="hs-bulbs">
+          {BULBS.map(([x, y], i) => (
+            <g key={i} className={`hs-bulb hs-bulb--${i % 3}`} transform={`translate(${x.toFixed(1)} ${y.toFixed(1)})`}>
+              <circle r="14" fill="url(#hs-bulb)" className="hs-bulb-glow" />
+              <circle r="5" fill="#fff6d6" />
+            </g>
+          ))}
         </g>
-        <g id="hs-plaque" transform="translate(500 778)">
-          <rect x="-150" y="-20" width="300" height="40" rx="6" fill="url(#hs-gold)" stroke="#6b4714" strokeWidth="1.5" />
+        <g transform={`translate(500 ${P.y - 24})`}>
+          <path d="M-70 14 L-56 -30 L-28 -6 L0 -50 L28 -6 L56 -30 L70 14Z" fill="url(#hs-gold)" stroke="#6b4714" strokeWidth="1.5" />
+          <circle cy="-54" r="8" fill="url(#hs-gold)" />
+          <circle cx="-58" cy="-34" r="6" fill="url(#hs-gold)" />
+          <circle cx="58" cy="-34" r="6" fill="url(#hs-gold)" />
+          <circle cy="-2" r="11" fill="url(#hs-gem)" />
+        </g>
+        <g id="hs-plaque" transform={`translate(500 ${P.y + P.h + 40})`}>
+          <rect x="-160" y="-20" width="320" height="40" rx="20" fill="url(#hs-gold)" stroke="#6b4714" strokeWidth="1.5" />
           <text className="hs-plaque-text" textAnchor="middle" y="8">
-            <tspan id="hs-pl-laura" opacity="0">Laura · </tspan>
+            <tspan id="hs-pl-louisa" opacity="0">Louisa · </tspan>
             <tspan id="hs-pl-miguel" opacity="0">Miguel I.</tspan>
-            <tspan id="hs-pl-louisa" opacity="0"> · Louisa</tspan>
+            <tspan id="hs-pl-laura" opacity="0"> · Laura</tspan>
           </text>
         </g>
       </g>
@@ -305,14 +345,9 @@ export function Stage({ group }: { group: string }) {
       <g id="hs-puffs" fill="#ffe7a3" />
 
       <rect id="hs-dark" x="-200" y="-200" width="1400" height="1400" fill="#0d0205" opacity=".7" pointerEvents="none" />
-      {/* top spots (Bühne frei) */}
-      <g id="hs-topspots" style={{ mixBlendMode: 'screen' }} opacity="0">
-        <path d="M300 -40 L320 -40 L560 900 L120 900Z" fill="url(#hs-topcone)" />
-        <path d="M680 -40 L700 -40 L880 900 L440 900Z" fill="url(#hs-topcone)" />
-      </g>
       <g id="hs-conewrap">
           <g id="hs-cone" opacity="0" style={{ mixBlendMode: 'screen' }}>
-            <path d="M18 -14 L760 -230 L760 230 L18 14Z" fill="url(#hs-conegrad)" opacity=".55" />
+            <path d="M18 -14 L760 -230 L760 230 L18 14Z" fill="url(#hs-conegrad)" opacity=".35" />
             <path d="M18 -9 L760 -120 L760 120 L18 9Z" fill="url(#hs-conegrad)" />
           </g>
       </g>

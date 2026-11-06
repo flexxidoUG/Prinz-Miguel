@@ -148,25 +148,30 @@ button { font: inherit; color: inherit; }
   filter: drop-shadow(0 4px 0 #d4a64a) drop-shadow(0 8px 12px rgba(0, 0, 0, .6));
 }
 .hero-inner {
-  position: relative; z-index: 2; min-height: 100svh; display: grid; grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+  position: relative; z-index: 2; min-height: 100svh; display: grid; grid-template-columns: minmax(0, 0.78fr) minmax(0, 1.22fr);
   align-items: center; gap: 2vw; padding: calc(var(--nav-h) + 10px) clamp(48px, 7vw, 130px) 40px clamp(56px, 10vw, 190px);
 }
 .hero-text { position: relative; z-index: 5; max-width: 560px; }
 .hero-kicker { animation: fadeUp 1s var(--ease) .3s both; }
-.hero-lines { margin: 22px 0 0; font: 600 clamp(38px, 4.6vw, 74px)/1.04 var(--serif); letter-spacing: -0.012em; }
+.hero-lines { margin: 22px 0 0; font: 600 clamp(36px, 4.1vw, 68px)/1.04 var(--serif); letter-spacing: -0.012em; }
 .hero-line { display: block; overflow: hidden; padding-bottom: .06em; }
 .hero-line > span { display: inline-block; animation: lineUp 1.3s var(--ease) both; animation-delay: inherit; }
 .hero-line:nth-child(2) > span { font-style: italic; font-weight: 500; }
-.hero-line:nth-child(3) > span { background: var(--gold-text); -webkit-background-clip: text; background-clip: text; color: transparent; background-size: 200% 100%; animation: lineUp 1.3s var(--ease) both, shimmer 6s linear 2.5s infinite; animation-delay: inherit, 2.5s; }
+.hero-line > span {
+  --sx: -30%; --so: 0;
+  background-image: linear-gradient(100deg, transparent calc(var(--sx) - 9%), rgba(255, 250, 230, var(--so)) var(--sx), transparent calc(var(--sx) + 9%)), linear-gradient(var(--champ), var(--champ));
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+}
+.hero-line:nth-child(3) > span { background-image: linear-gradient(100deg, transparent calc(var(--sx) - 9%), rgba(255, 255, 245, var(--so)) var(--sx), transparent calc(var(--sx) + 9%)), var(--gold-text); background-size: 100% 100%, 200% 100%; animation: lineUp 1.3s var(--ease) both, shimmer 6s linear 2.5s infinite; animation-delay: inherit, 2.5s; }
 @keyframes lineUp { from { transform: translateY(110%) rotate(2deg); opacity: 0; } }
-@keyframes shimmer { to { background-position: -200% 0; } }
+@keyframes shimmer { to { background-position: 0 0, -200% 0; } }
 @keyframes fadeUp { from { opacity: 0; transform: translateY(16px); } }
 .hero-welcome { margin: 26px 0 0; max-width: 34ch; color: var(--muted); font-size: clamp(16px, 1.3vw, 19px); animation: fadeUp 1.2s var(--ease) 2s both; }
 .hero-controls { margin-top: 34px; display: flex; flex-wrap: wrap; gap: 10px; align-items: center; animation: fadeUp 1s var(--ease) 2.3s both; }
 .hero-progress { flex-basis: 100%; height: 2px; background: rgba(243, 212, 138, .15); border-radius: 2px; overflow: hidden; max-width: 340px; }
 .hero-progress > div { height: 100%; background: linear-gradient(90deg, var(--gold-3), var(--gold-2)); transform-origin: left; transform: scaleX(0); }
 .hero-stage {
-  position: relative; width: min(100%, 86svh); aspect-ratio: 1; justify-self: center;
+  position: relative; width: min(100%, 94svh); aspect-ratio: 1; justify-self: center; margin-top: -2svh;
   -webkit-mask: linear-gradient(90deg, transparent 0, #000 7%, #000 93%, transparent 100%);
   mask: linear-gradient(90deg, transparent 0, #000 7%, #000 93%, transparent 100%);
 }
@@ -185,7 +190,8 @@ button { font: inherit; color: inherit; }
   .hero-welcome { margin: 12px auto 0; font-size: 15px; }
   .hero-controls { justify-content: center; margin-top: 14px; }
   .hero-progress { margin: 0 auto; }
-  .hero-stage { width: min(100%, 62svh); order: 2; }
+  .hero-stage { width: min(100%, 64svh); order: 2; margin-top: 0; }
+  .hero-crew .crew-f { display: none; }
   .hero-curtain { width: 8vw; }
   .scroll-cue { display: none; }
 }
@@ -409,3 +415,20 @@ button { font: inherit; color: inherit; }
 .legal { max-width: 760px; margin: 0 auto; padding: 50px 22px 90px; }
 .legal h1 { margin: 30px 0 24px; }
 .legal p { color: var(--champ); }
+
+/* ---------- hero: crew on the text, marquee bulbs, searchlights ---------- */
+.hero-crew { position: absolute; left: -40px; top: -120px; width: calc(100% + 220px); height: calc(100% + 150px); overflow: visible; pointer-events: none; z-index: 6; }
+.cr-sign-text { font: 700 22px var(--serif); fill: #6b1515; letter-spacing: .02em; }
+.hs-bulb { animation: bulb 1.2s steps(1) infinite; }
+.hs-bulb--1 { animation-delay: -.4s; }
+.hs-bulb--2 { animation-delay: -.8s; }
+@keyframes bulb { 0% { opacity: 1; } 33% { opacity: .35; } 66% { opacity: .6; } }
+.hs-bulb-glow { mix-blend-mode: screen; }
+.hero::before, .hero::after {
+  content: ''; position: absolute; bottom: -10%; width: 22vw; height: 130%; z-index: 0; pointer-events: none;
+  background: linear-gradient(to top, rgba(255, 226, 160, .16), transparent 85%); filter: blur(18px); transform-origin: bottom center;
+  clip-path: polygon(42% 100%, 58% 100%, 100% 0, 0 0); mix-blend-mode: screen;
+}
+.hero::before { left: 28%; animation: search 11s ease-in-out infinite alternate; }
+.hero::after { right: 6%; animation: search 13s ease-in-out -5s infinite alternate-reverse; }
+@keyframes search { from { transform: rotate(-24deg); } to { transform: rotate(22deg); } }

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { Content } from '../api';
 import { confetti, COLORS, reducedMotion } from '../confetti';
-import { Stage } from './Stage';
+import { Elf, Stage } from './Stage';
 import { createShow, SHOW_END, type ShowEvent } from './show';
 
 type Mode = 'audio' | 'muted' | 'paused' | 'done';
@@ -15,6 +15,8 @@ export function Hero({ content }: { content: Content }) {
   const canvas = useRef<HTMLCanvasElement>(null);
   const audio = useRef<HTMLAudioElement>(null);
   const bar = useRef<HTMLDivElement>(null);
+  const textCol = useRef<HTMLDivElement>(null);
+  const crewSvg = useRef<SVGSVGElement>(null);
   const [mode, setMode] = useState<Mode>('muted');
   const [soundOn, setSoundOn] = useState(false);
   const api = useRef<{ play: (withSound: boolean) => void; pause: () => void; replay: (withSound?: boolean) => void; skip: () => void; sound: (on: boolean) => void }>();
@@ -30,7 +32,12 @@ export function Hero({ content }: { content: Content }) {
       fire({ particleCount: big ? 140 : 24, angle: e.angle, spread: big ? 55 : 30, startVelocity: big ? 62 : 28, origin, colors: COLORS, scalar: big ? 1.1 : 0.8, ticks: 260, gravity: 0.9 });
       if (e.kind === 'alaaf' && e.angle < 90) fire({ particleCount: 120, spread: 160, startVelocity: 38, origin: { x: origin.x + (r.width / 2 / c.width) * 0.9, y: 0.05 }, colors: COLORS, ticks: 320 });
     };
-    const render = createShow(svg, content.hero.cues, onEvent);
+    const lines = [...textCol.current!.querySelectorAll<HTMLElement>('.hero-line > span')];
+    const render = createShow(svg, content.hero.cues, onEvent, { svg: crewSvg.current!, lines, text: textCol.current! });
+    const relayout = () => { render.layout(); render(t); };
+    const ro = new ResizeObserver(relayout);
+    ro.observe(textCol.current!);
+    const relayoutLate = setTimeout(relayout, 2600); // after the line reveal animation settles
 
     let t = 0, virtStart = performance.now(), m: Mode = 'muted', raf = 0, visible = true;
     const dur = () => (Number.isFinite(a.duration) ? a.duration : 35.64);
@@ -132,7 +139,7 @@ export function Hero({ content }: { content: Content }) {
     io.observe(root.current!);
     const onVis = () => { if (document.hidden && m === 'muted') pause(); };
     document.addEventListener('visibilitychange', onVis);
-    return () => { cancelAnimationFrame(raf); io.disconnect(); a.pause(); document.removeEventListener('visibilitychange', onVis); fire.reset(); };
+    return () => { ro.disconnect(); clearTimeout(relayoutLate); cancelAnimationFrame(raf); io.disconnect(); a.pause(); document.removeEventListener('visibilitychange', onVis); fire.reset(); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -144,7 +151,20 @@ export function Hero({ content }: { content: Content }) {
       <div className="hero-valance" aria-hidden />
       <div className="hero-glow" aria-hidden />
       <div className="hero-inner">
-        <div className="hero-text">
+        <div className="hero-text" ref={textCol}>
+          <svg ref={crewSvg} className="hero-crew" aria-hidden>
+            <line id="cr-rope" stroke="#c8a56a" strokeWidth="2.2" />
+            <g id="cr-sparks" fill="#fff6d6" />
+            <Elf id="elfE" c1="#b5162b" c2="#fff4dc" hair="#3a2010" prop="pole" />
+            <g className="crew-f">
+              <g id="cr-sign" opacity="0">
+                <rect x="-2" y="-70" width="4" height="70" fill="#6b3d1c" />
+                <rect x="-66" y="-118" width="132" height="50" rx="10" fill="#fbf1dc" stroke="url(#hs-gold)" strokeWidth="4" />
+                <text x="0" y="-85" textAnchor="middle" className="cr-sign-text" />
+              </g>
+              <Elf id="elfF" c1="#e8b84e" c2="#7a0f1d" hair="#6b3a1e" />
+            </g>
+          </svg>
           <p className="kicker hero-kicker">{content.site.sessionLabel}</p>
           <h1 className="hero-lines">
             {h.lines.map((l, i) => (

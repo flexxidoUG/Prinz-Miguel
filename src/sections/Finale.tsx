@@ -33,7 +33,7 @@ export function Finale({ content }: { content: Content }) {
       <div className="fi-curtain fi-curtain--l" aria-hidden />
       <div className="fi-curtain fi-curtain--r" aria-hidden />
       <div className="fi-inner">
-        <img className="fi-photo" src={content.media.group} alt="Kinderprinz Miguel I. mit Laura und Louisa" loading="lazy" />
+        <img className="fi-photo" src={content.media.group} alt="Kinderprinz Miguel I. mit Louisa und Laura" loading="lazy" />
         <p className="kicker fi-kick">{content.finale.kicker} · {content.finale.text}</p>
         <h2 className="fi-motto" aria-label={motto}>
           {motto.split(' ').map((w, i) => (

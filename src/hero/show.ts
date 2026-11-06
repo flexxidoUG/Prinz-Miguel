@@ -1,5 +1,5 @@
 import { kf, env, osc, pulse, win, lerp, E, warp, type Key } from './anim';
-import { P, star } from './Stage';
+import { P, px, star } from './Stage';
 
 /** Design-time anchors measured from the supplied MP3 (Whisper transcription with word timestamps). */
 const DESIGN = [0, 21.4, 23.4, 26.6, 27.3, 30.1, 33.2, 34.5, 35.64];
@@ -49,10 +49,12 @@ function idle(st: St, t: number, seed: number) {
   st.blink = (t * 0.29 + seed * 0.13) % 1 < 0.035 ? 1 : 0;
   st.head += Math.sin(t * 0.9 + seed) * 2;
 }
-const FACES = { laura: [378, 232], miguel: [497, 214], louisa: [614, 232] } as const;
+// Group photo, left → right: Louisa · Miguel I. · Laura
+const FACES = { louisa: px(205, 340), miguel: px(510, 320), laura: px(805, 345) } as const;
+const K = P.w / 420; // scale of the portrait relative to the first layout
 
 /** Shared reactions to the announcer. `freeF` = front arm is not holding a tool. */
-function react(st: St, t: number, freeF: boolean, jumpable = true) {
+function react(st: St, t: number, freeF: boolean, jumpable = true, point = true) {
   const w = env(t, 16.85, 17.95, 0.18); // "Seid ihr bereit?" → wave to the audience
   if (w) { st.armB = lerp(st.armB, -165 + Math.sin(t * 15) * 18, w); st.head = lerp(st.head, -6, w); st.mouth = Math.max(st.mouth, w * 0.6); }
   const m = env(t, 21.45, 22.8, 0.18); // "Kinderprinz Miguel der Erste" → joy
@@ -63,7 +65,7 @@ function react(st: St, t: number, freeF: boolean, jumpable = true) {
     if (jumpable) st.y -= 22 * Math.sin(win(t, 21.5, 21.95) * Math.PI);
   }
   for (const [name, a, b] of [['laura', 26.62, 27.25], ['louisa', 27.32, 28.2]] as const) {
-    const p = env(t, a, b, 0.12);
+    const p = point ? env(t, a, b, 0.12) : 0;
     if (!p) continue;
     const [fx, fy] = FACES[name];
     const [sx, sy] = toWorld(st, -14, -94);
@@ -158,6 +160,8 @@ function stB(t: number): St {
   st.head -= 12 * env(t, 7.9, 9.5, 0.3);
   const laugh = env(t, 14.7, 16.4, 0.2);
   if (laugh) { st.armB = lerp(st.armB, -150, laugh); st.bob += Math.abs(Math.sin(t * 20)) * 3 * laugh; st.mouth = laugh; st.head += 8 * laugh; }
+  const sh = env(t, 32.0, 33.1, 0.15); // hip sway before the countdown
+  if (sh) { st.lean += Math.sin(t * 7) * 8 * sh; st.armB = lerp(st.armB, -130 + Math.sin(t * 7) * 25, sh); }
   react(st, t, false);
   return st;
 }
@@ -177,6 +181,12 @@ function stC(t: number): St {
   st.mouth = Math.max(st.mouth, jump);
   st.y -= 20 * pulse(t, 30.15, 0.1, 0.3);
   st.head += -10 * env(t, 7.9, 9.5, 0.2) - 16 * env(t, 18, 19.8, 0.2);
+  const jig = env(t, 2.2, 4.6, 0.2); // little jig once the light is on
+  if (jig) { st.y -= Math.abs(Math.sin(t * 9)) * 16 * jig; st.armB = lerp(st.armB, -150 + Math.sin(t * 9) * 30, jig); st.legL += Math.sin(t * 9) * 20 * jig; st.legR -= Math.sin(t * 9) * 20 * jig; st.mouth = Math.max(st.mouth, jig * 0.7); }
+  const clap = env(t, 11.0, 13.9, 0.2); // claps along with the music
+  if (clap) { const c = Math.abs(Math.sin(t * 8)); st.armF = lerp(st.armF, -80 + 25 * c, clap); st.armB = lerp(st.armB, -80 - 25 * c, clap); st.head += 6 * Math.sin(t * 4) * clap; }
+  const dance = env(t, 23.4, 26.4, 0.2); // "bezaubernde Paginnen": swaying dance
+  if (dance) { st.lean += Math.sin(t * 5) * 9 * dance; st.armB = lerp(st.armB, -140 + Math.sin(t * 5) * 30, dance); st.armF = lerp(st.armF, -140 - Math.sin(t * 5) * 30, dance); st.y -= Math.abs(Math.sin(t * 5)) * 8 * dance; }
   react(st, t, t < 29.2 || t > 34.55);
   return st;
 }
@@ -207,6 +217,8 @@ function stD(t: number): St {
   st.mouth = Math.max(env(t, 14.55, 15.2, 0.1), pulse(t, 30.2, 0.1, 0.6));
   st.head += osc(t, 16.3, 16.9, 14, 0.18);
   st.y -= 26 * pulse(t, 30.2, 0.1, 0.35);
+  const jug = env(t, 19.6, 21.3, 0.15) + env(t, 24.0, 26.4, 0.15); // juggling gold bells
+  if (jug) { st.armF = lerp(st.armF, -120 + Math.sin(t * 12) * 22, jug); st.armB = lerp(st.armB, -120 - Math.sin(t * 12) * 22, jug); st.head -= 12 * jug; }
   idle(st, t, 4.1);
   react(st, t, t < 29.3 || t > 34.55);
   return st;
@@ -232,11 +244,13 @@ function binder() {
 }
 const n1 = (v: number) => (Math.round(v * 10) / 10).toString();
 
-export function createShow(svg: SVGSVGElement, cues: Cues, onEvent: (e: ShowEvent) => void) {
+export type Crew = { svg: SVGSVGElement; lines: HTMLElement[]; text: HTMLElement };
+
+export function createShow(svg: SVGSVGElement, cues: Cues, onEvent: (e: ShowEvent) => void, crew?: Crew) {
   const set = binder();
   const $ = (s: string) => svg.querySelector(s) as SVGGraphicsElement;
-  const elf = (id: string) => {
-    const r = $(id);
+  const elf = (id: string, root: Element = svg) => {
+    const r = root.querySelector(id) as SVGGraphicsElement;
     const g = (c: string) => r.querySelector('.' + c);
     return { r, pos: g('pos'), shadow: g('shadow'), lean: g('lean'), legL: g('legL'), legR: g('legR'), bob: g('bob'), armF: g('armF'), armB: g('armB'), head: g('head'), eyes: g('eyes'), smile: g('smile'), mouthO: g('mouthO'), cap: g('cap'), pole: g('pole'), cloth: g('cloth') };
   };
@@ -293,11 +307,11 @@ export function createShow(svg: SVGSVGElement, cues: Cues, onEvent: (e: ShowEven
   addSweeps(B_SW, stB, (s) => s.r, false);
 
   const splatD = $('#hs-splat path').getAttribute('d')!;
-  const splat = [mk('path', { d: splatD }), mk('circle', { cx: 610, cy: 600, r: 14 }), mk('circle', { cx: 395, cy: 700, r: 11 }), mk('circle', { cx: 540, cy: 560, r: 9 })];
+  const splat = [mk('path', { d: splatD }), mk('circle', { cx: 610, cy: 620, r: 14 }), mk('circle', { cx: 395, cy: 720, r: 11 }), mk('circle', { cx: 540, cy: 580, r: 9 })];
   const blobs = [
-    { c: FACES.miguel, r: 128, t: 21.45, ry: 1 }, { c: [497, 470], r: 105, t: 21.9, ry: 2.3 },
-    { c: FACES.laura, r: 120, t: 26.62, ry: 1 }, { c: [372, 470], r: 80, t: 26.9, ry: 2.6 },
-    { c: FACES.louisa, r: 120, t: 27.32, ry: 1 }, { c: [622, 470], r: 80, t: 27.6, ry: 2.6 },
+    { c: FACES.miguel, r: 128 * K, t: 21.45, ry: 1 }, { c: px(510, 840), r: 105 * K, t: 21.9, ry: 2.3 },
+    { c: FACES.laura, r: 120 * K, t: 26.62, ry: 1 }, { c: px(815, 860), r: 80 * K, t: 26.9, ry: 2.6 },
+    { c: FACES.louisa, r: 120 * K, t: 27.32, ry: 1 }, { c: px(210, 860), r: 80 * K, t: 27.6, ry: 2.6 },
   ].map((b) => ({ ...b, el: mk('ellipse', { cx: b.c[0], cy: b.c[1], rx: 0, ry: 0 }) }));
   const sweepRect = $('#hs-sweeprect');
   const full = $('#hs-full');
@@ -311,15 +325,128 @@ export function createShow(svg: SVGSVGElement, cues: Cues, onEvent: (e: ShowEven
   const sparks: { el: Element; x: number; y: number; t: number; s: number }[] = [];
   const addSpark = (x: number, y: number, t: number, s = 1) => sparks.push({ el: mk('path', { d: star, opacity: 0 }, sparkG), x, y, t, s });
   for (let t = 10.9; t < 13.9; t += 0.32) { const [x, y] = hand(stB(t), stB(t).pole); addSpark(x + 10, y - 10, t, 1.2); }
-  for (const b of rings) for (let i = 0; i < 6; i++) { const a = (i / 6) * Math.PI * 2 + b.t; addSpark(b.c[0] + Math.cos(a) * 120, b.c[1] + Math.sin(a) * 120, b.t + 0.2 + i * 0.05, 1.3); }
-  for (let i = 0; i < 16; i++) { const a = i * 2.4; addSpark(500 + Math.cos(a) * 270, 410 + Math.sin(a) * 380, 34.55 + (i % 5) * 0.12, 1.8); }
-  for (let i = 0; i < 10; i++) addSpark(280 + i * 48, 70 + (i % 2) * 680, 12.2 + i * 0.09, 1);
+  for (const b of rings) for (let i = 0; i < 6; i++) { const a = (i / 6) * Math.PI * 2 + b.t; addSpark(b.c[0] + Math.cos(a) * 120 * K, b.c[1] + Math.sin(a) * 120 * K, b.t + 0.2 + i * 0.05, 1.3); }
+  for (let i = 0; i < 16; i++) { const a = i * 2.4; addSpark(500 + Math.cos(a) * 0.64 * P.w, P.y + P.h / 2 + Math.sin(a) * 0.6 * P.h, 34.55 + (i % 5) * 0.12, 1.8); }
+  for (let i = 0; i < 10; i++) addSpark(P.x - 10 + i * ((P.w + 20) / 9), (i % 2 ? P.y + P.h + 14 : P.y + 60), 12.2 + i * 0.09, 1);
 
   const starG = $('#hs-stars');
   const dizzy = [0, 1, 2].map(() => mk('path', { d: star, opacity: 0 }, starG));
   const puffG = $('#hs-puffs');
   const puffs = VANISH.map(() => Array.from({ length: 9 }, () => mk('circle', { r: 0 }, puffG)));
   const lastPos: [number, number][] = [[0, 0], [0, 0], [0, 0], [0, 0]];
+
+  // extra stage life: streamers at "Bühne frei", hearts at "Herzen höher schlagen", juggling bells
+  const fxG = document.createElementNS(NS, 'g');
+  svg.insertBefore(fxG, $('#hs-dark'));
+  const PALETTE = ['#f3d48a', '#b5162b', '#fff4dc', '#3a8be0', '#36b37e', '#f08a24', '#d4a64a'];
+  const streamers = Array.from({ length: 12 }, (_, i) => {
+    let d = 'M0 0';
+    for (let k = 0; k < 6; k++) d += ` c ${k % 2 ? -22 : 22} 12 ${k % 2 ? -22 : 22} 34 0 ${40 + (i % 3) * 6}`;
+    return { el: mk('path', { d, fill: 'none', stroke: PALETTE[i % PALETTE.length], 'stroke-width': 5, 'stroke-linecap': 'round' }, fxG), x: 30 + i * 85 + (i % 2) * 20, t: 18.0 + (i % 6) * 0.07, drop: 40 + (i * 37) % 90 };
+  });
+  const HEART = 'M0 4 C-7 -5 -16 3 0 15 C16 3 7 -5 0 4Z';
+  const hearts = Array.from({ length: 16 }, (_, i) => ({ el: mk('path', { d: HEART, fill: i % 3 ? '#e0284a' : '#f3d48a', opacity: 0 }, fxG), who: i % 4, t: 28.45 + i * 0.09, dx: ((i * 53) % 40) - 20 }));
+  const heartFrom = [stA, stB, stC, stD].map((fn) => toWorld(fn(28.4), 0, -140));
+  const balls = [0, 1, 2].map(() => mk('circle', { r: 7, fill: 'url(#hs-gold)', opacity: 0 }, fxG));
+
+  // ---------- crew on the text column: a rope-climber polishes the letters, a sign bearer cheers ----------
+  type Box = { x: number; y: number; w: number; h: number; m: number; r: number };
+  let B: Box[] = [], floorY = 0, signX = 0, W = 0;
+  const ES = 0.62, FS = 0.6;
+  const cr = crew && { e: elf('#elfE', crew.svg), f: elf('#elfF', crew.svg), rope: crew.svg.querySelector('#cr-rope')!, sign: crew.svg.querySelector('#cr-sign')!, signText: crew.svg.querySelector('#cr-sign text')!, sparkG: crew.svg.querySelector('#cr-sparks')! };
+  const crewSparks = cr ? Array.from({ length: 6 }, () => mk('path', { d: star, opacity: 0 }, cr.sparkG)) : [];
+  const layout = () => {
+    if (!crew) return;
+    const c = crew.svg.getBoundingClientRect();
+    W = c.width;
+    crew.svg.setAttribute('viewBox', `0 0 ${c.width.toFixed(0)} ${c.height.toFixed(0)}`);
+    B = crew.lines.map((el) => {
+      const r = el.getBoundingClientRect(), pr = el.parentElement!.getBoundingClientRect();
+      const x = r.left - c.left, y = pr.top - c.top;
+      return { x, y, w: r.width, h: pr.height, m: y + pr.height * 0.56, r: x + r.width };
+    });
+    const tr = crew.text.getBoundingClientRect();
+    floorY = tr.bottom - c.top;
+    signX = Math.min(c.width - 50, tr.right - c.left + 70);
+  };
+  const POLISH: [number, number][] = [[3.0, 7.5], [10.6, 14.0], [18.8, 22.6]];
+  const clothAt = (t: number): [number, number] => {
+    const [l0, l1, l2] = B;
+    return [
+      kf(t, [[0, l0.r + 40], [1.8, l0.r + 40], [3.0, l0.r - 6], [7.5, l0.x + 6], [9.5, l0.x + 6], [10.6, l1.x + 6], [14.0, l1.r - 6], [18.0, l1.r - 6], [18.8, l2.r - 6], [22.6, l2.x + 6], [23.4, l2.x + 6], [25.5, (l2.x + l2.r) / 2]]),
+      kf(t, [[0, -280], [1.8, -280], [3.0, l0.m, 'o'], [9.5, l0.m], [10.6, l1.m], [18.0, l1.m], [18.8, l2.m], [25.5, l2.m - 10]]),
+    ];
+  };
+  const stE = (t: number): St => {
+    const f = t < 9.5 ? -1 : t < 18 ? 1 : t < 23.4 ? -1 : 1;
+    const st = base(0, 0, f);
+    st.s = ES; st.shadow = 0; st.pole = 46;
+    const [cx, cy] = clothAt(t);
+    st.x = cx - f * 60 * ES;
+    st.y = cy + 94 * ES;
+    const pol = POLISH.reduce((a, [p0, p1]) => Math.max(a, env(t, p0, p1, 0.2)), 0);
+    st.armF = lerp(-55, -90 + Math.sin(t * 19) * 22, pol);
+    st.pole += Math.cos(t * 19) * 8 * pol;
+    st.armB = -172;
+    st.legL = 18 + Math.sin(t * 2.2) * 12;
+    st.legR = 4 + Math.sin(t * 2.2 + 1.2) * 12;
+    st.lean += osc(t, 14.6, 16.6, 14, 0.9) + osc(t, 34.5, 37, 20, 1.1) + Math.sin(t * 1.3) * 2;
+    st.mouth = Math.max(env(t, 14.6, 16.2, 0.2), pulse(t, 7.95, 0.2, 1.2));
+    st.head += -12 * env(t, 7.9, 9.4, 0.3); // peeks over at the frame
+    idle(st, t, 5.3);
+    react(st, t, false, false, false);
+    st.vis = 1 - win(t, 38.2, 38.5);
+    return st;
+  };
+  const SIGNS: [number, string][] = [[0, ''], [5.0, 'Psst …'], [16.8, 'Bereit?'], [18.0, 'Bühne frei!'], [21.4, 'Miguel I.'], [23.4, '♥ Paginnen ♥'], [26.6, 'Laura'], [27.3, 'Louisa'], [28.4, '♥ ♥ ♥'], [30.1, 'Konfetti!'], [33.2, '3 ×'], [34.5, 'ALAAF!']];
+  const stF = (t: number): St => {
+    const st = base(kf(t, [[3.6, W + 90], [5.0, signX, 'l']]), floorY, -1);
+    st.s = FS;
+    walk(st, t, 3.6, 5.0, 2.6, false);
+    st.armF = -170; st.armB = -166;
+    for (const [c] of SIGNS.slice(1)) { const p = pulse(t, c + 0.05, 0.08, 0.3); st.y -= 16 * p; st.mouth = Math.max(st.mouth, p); }
+    for (const c of [33.2, 33.7, 34.2]) st.y -= 10 * pulse(t, c + 0.06, 0.1, 0.25);
+    const al = env(t, 34.5, 36.2, 0.1);
+    st.y -= 22 * Math.abs(Math.sin(win(t, 34.5, 36.2) * Math.PI * 3)) * al;
+    st.lean += Math.sin(t * 9) * 8 * al + 10 * env(t, 14.7, 16.2, 0.2) * Math.sin(t * 20);
+    idle(st, t, 6.1);
+    st.vis = 1 - win(t, 38.35, 38.65);
+    return st;
+  };
+  const drawCrew = (t: number) => {
+    if (!cr || !B.length) return;
+    const e = stE(t);
+    drawElf(cr.e, e);
+    const [rx, ry] = hand(e, 35, false);
+    set(cr.rope, 'x1', n1(rx)); set(cr.rope, 'y1', n1(ry)); set(cr.rope, 'x2', n1(rx)); set(cr.rope, 'y2', '-600');
+    set(cr.rope, 'opacity', e.vis.toFixed(2));
+    crew!.lines.forEach((el, i) => {
+      const w = POLISH[i] ? env(t, POLISH[i][0], POLISH[i][1], 0.25) : 0;
+      const [cx] = clothAt(t);
+      el.style.setProperty('--so', w.toFixed(2));
+      el.style.setProperty('--sx', `${(((cx - B[i].x) / B[i].w) * 100).toFixed(1)}%`);
+    });
+    crewSparks.forEach((el, j) => {
+      const tk = Math.floor(t / 0.25) * 0.25 - (j % 3) * 0.25 - (j >= 3 ? 0.12 : 0);
+      const on = POLISH.some(([a, b]) => tk > a && tk < b);
+      const p = (t - tk) / 0.75;
+      set(el, 'opacity', on && p < 1 ? '1' : '0');
+      if (!on) return;
+      const [x, y] = clothAt(tk);
+      const jx = ((tk * 97) % 1) * 40 - 20, jy = ((tk * 61) % 1) * 24 - 12;
+      set(el, 'transform', `translate(${n1(x + jx)} ${n1(y + jy)}) rotate(${n1(p * 90)}) scale(${(Math.sin(p * Math.PI) * 0.9).toFixed(2)})`);
+    });
+    const f = stF(t);
+    drawElf(cr.f, f);
+    const [hx, hy] = hand(f, 36);
+    const idx = SIGNS.reduce((a, [c], i) => (t >= c ? i : a), 0);
+    const flip = Math.max(...SIGNS.slice(1).map(([c]) => pulse(t, c, 0.1, 0.12)));
+    if (cr.signText.textContent !== SIGNS[idx][1]) cr.signText.textContent = SIGNS[idx][1];
+    const wave = Math.sin(t * 9) * 8 * env(t, 34.5, 36.2, 0.1) + (pulse(t, 33.26, 0.1, 0.3) + pulse(t, 33.76, 0.1, 0.3) + pulse(t, 34.26, 0.1, 0.3)) * -12;
+    set(cr.sign, 'transform', `translate(${n1(hx)} ${n1(hy + wave * 0.5)}) rotate(${n1(wave)}) scale(${(1 - flip).toFixed(2)} 1)`);
+    set(cr.sign, 'opacity', (idx ? 1 : 0) * f.vis + '');
+  };
+  layout();
 
   const frame = $('#hs-frame'), ropes = [$('#hs-ropes1'), $('#hs-ropes2')], shine = $('#hs-shinepath');
   const shineGrad = svg.querySelector('#hs-shine')!;
@@ -369,11 +496,17 @@ export function createShow(svg: SVGSVGElement, cues: Cues, onEvent: (e: ShowEven
           const [h0x, h0y] = hand(stD(14.6), 38);
           const p = win(t, 14.6, 14.95), q = 1 - p;
           bx = q * q * h0x + 2 * q * p * 540 + p * p * 500;
-          by = q * q * h0y + 2 * q * p * 520 + p * p * 640;
+          by = q * q * h0y + 2 * q * p * 540 + p * p * 660;
           br = -210 * p;
-        } else { const p = E.bo(win(t, 14.95, 15.5)); bx = lerp(500, 470, p); by = lerp(640, 900, p); br = lerp(-210, -180, p); }
+        } else { const p = E.bo(win(t, 14.95, 15.5)); bx = lerp(500, 470, p); by = lerp(660, 900, p); br = lerp(-210, -180, p); }
         set(bucket, 'transform', `translate(${n1(bx)} ${n1(by)}) rotate(${n1(br)})`);
         const [kx, ky] = toWorld(st, 0, -150);
+        const jug = env(t, 19.6, 21.3, 0.15) + env(t, 24.0, 26.4, 0.15);
+        balls.forEach((b, j) => {
+          const ph = t * 6 + j * 2.09;
+          set(b, 'opacity', n1(jug));
+          if (jug) { set(b, 'cx', n1(kx + Math.cos(ph) * 24)); set(b, 'cy', n1(ky - 10 - Math.abs(Math.sin(ph)) * 46)); }
+        });
         const dz = env(t, 15.0, 16.7, 0.2);
         dizzy.forEach((d, j) => {
           const a = t * 6 + (j * Math.PI * 2) / 3;
@@ -383,6 +516,20 @@ export function createShow(svg: SVGSVGElement, cues: Cues, onEvent: (e: ShowEven
       }
     });
     const propsVis = (1 - win(t, 38.0, 38.8)).toFixed(2);
+    for (const st of streamers) {
+      const p = E.bo(win(t, st.t, st.t + 1.1));
+      set(st.el, 'opacity', p > 0 ? '1' : '0');
+      if (p > 0) set(st.el, 'transform', `translate(${st.x} ${n1(-320 + (320 - st.drop) * p)}) rotate(${n1(Math.sin(t * 1.6 + st.x) * 6)})`);
+    }
+    for (const h of hearts) {
+      const p = win(t, h.t, h.t + 2.3);
+      set(h.el, 'opacity', p > 0 && p < 1 ? n1(1 - p * p) : '0');
+      if (p > 0 && p < 1) {
+        const [x0, y0] = heartFrom[h.who];
+        set(h.el, 'transform', `translate(${n1(x0 + h.dx + Math.sin(p * 7 + h.dx) * 22)} ${n1(y0 - 300 * p)}) scale(${(0.8 + 0.8 * Math.sin(p * Math.PI)).toFixed(2)})`);
+      }
+    }
+    drawCrew(t);
 
     // ladder
     let lx = LADDER.x, ly = LADDER.y, la = LADDER.ang;
@@ -397,8 +544,8 @@ export function createShow(svg: SVGSVGElement, cues: Cues, onEvent: (e: ShowEven
     // lamp
     const c = stC(t);
     const lampX = t < 1.3 ? c.x + 48 : LAMP_X, lampY = t < 1.3 ? 890 : 900;
-    const aim = kf(t, [[0, -20], [7.9, -20], [8.5, -40], [8.8, -31], [9.2, -35], [18.0, -35], [19.2, -58, 'b'], [34.4, -56], [34.6, -48, 'o']]);
-    const on = t < 1.5 ? 0 : kf(t, [[1.5, 0], [1.56, 0.85, 'l'], [1.62, 0.2, 'l'], [1.7, 0.9, 'l'], [1.78, 0.45, 'l'], [1.95, 0.8, 'l'], [21.4, 0.85], [28.4, 1], [38.0, 1], [38.8, 0]]);
+    const aim = kf(t, [[0, -20], [7.9, -20], [8.5, -40], [8.8, -31], [9.2, -35], [18.0, -35], [19.2, -40, 'b'], [34.4, -40], [34.6, -34, 'o']]);
+    const on = t < 1.5 ? 0 : kf(t, [[1.5, 0], [1.56, 0.85, 'l'], [1.62, 0.2, 'l'], [1.7, 0.9, 'l'], [1.78, 0.45, 'l'], [1.95, 0.8, 'l'], [21.4, 0.7], [28.4, 0.75], [35.5, 0.75], [36.5, 0.45], [38.0, 0.45], [38.8, 0]]);
     set(lamp, 'transform', `translate(${n1(lampX)} ${n1(lampY)})`);
     set(lamp, 'opacity', propsVis);
     set(lampHead, 'transform', `translate(0 -104) rotate(${n1(aim)})`);
@@ -421,10 +568,10 @@ export function createShow(svg: SVGSVGElement, cues: Cues, onEvent: (e: ShowEven
     // reveal
     for (const s of strokes) set(s.el, 'stroke-dashoffset', n1(s.len * (1 - E.io(win(t, s.t0, s.t1)))));
     const sp = E.o(win(t, 14.95, 15.2));
-    splat.forEach((el) => set(el, 'transform', `translate(500 640) scale(${(0.2 + 0.8 * sp).toFixed(3)}) translate(-500 -640)`));
+    splat.forEach((el) => set(el, 'transform', `translate(500 660) scale(${(0.2 + 0.8 * sp).toFixed(3)}) translate(-500 -660)`));
     splat.forEach((el) => set(el, 'opacity', sp ? '1' : '0'));
     set(splatVis, 'opacity', n1(t < 14.95 ? 0 : 1 - win(t, 15.1, 15.9)));
-    set(splatVis, 'transform', `translate(500 640) scale(${(0.2 + 0.8 * sp).toFixed(3)}) translate(-500 -640)`);
+    set(splatVis, 'transform', `translate(500 660) scale(${(0.2 + 0.8 * sp).toFixed(3)}) translate(-500 -660)`);
     for (const b of blobs) {
       const p = E.o(win(t, b.t, b.t + 0.7));
       set(b.el, 'rx', n1(b.r * p)); set(b.el, 'ry', n1(b.r * b.ry * p));
@@ -435,7 +582,7 @@ export function createShow(svg: SVGSVGElement, cues: Cues, onEvent: (e: ShowEven
       set(r.el, 'opacity', p > 0 && p < 1 ? n1(1 - p) : '0');
       set(r.el, 'stroke-width', n1(7 * (1 - p)));
     }
-    set(sweepRect, 'width', n1(kf(t, [[31.6, 0], [33.0, 380], [34.5, 400], [34.95, 560]])));
+    set(sweepRect, 'width', n1(K * kf(t, [[31.6, 0], [33.0, 380], [34.5, 400], [34.95, 560]])));
     set(full, 'opacity', n1(win(t, 34.5, 35.1)));
     for (const s of sparks) {
       const p = win(t, s.t, s.t + 0.75);
@@ -468,9 +615,9 @@ export function createShow(svg: SVGSVGElement, cues: Cues, onEvent: (e: ShowEven
     // light
     const darkness = kf(t, [[0, 0.82], [1.5, 0.62, 'l'], [1.9, 0.46], [18, 0.42], [19.2, 0.26], [21.4, 0.18], [28.4, 0.12], [34.5, 0]]);
     set(dark, 'opacity', darkness.toFixed(3));
-    set(top, 'opacity', n1(kf(t, [[18.0, 0], [18.7, 0.85, 'o'], [34.4, 0.85], [34.6, 1], [36, 0.55]])));
+    set(top, 'opacity', n1(kf(t, [[1.6, 0], [2.4, 0.35], [18.0, 0.4], [18.7, 0.9, 'o'], [34.4, 0.9], [34.6, 1], [36, 0.85]])));
     set(foot, 'opacity', n1(kf(t, [[0, 0], [1.6, 0.25], [18.0, 0.3], [18.5, 0.95], [34.5, 1]])));
     return { t, glow: 1 - darkness };
   }
-  return render;
+  return Object.assign(render, { layout });
 }

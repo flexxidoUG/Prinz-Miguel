@@ -68,8 +68,20 @@ if (!db.prepare("select 1 from kv where key='content'").get()) {
   const seed = path.join(ROOT, 'seed');
   for (const f of fs.readdirSync(seed)) fs.copyFileSync(path.join(seed, f), path.join(UPLOAD_DIR, f));
   saveContent(defaultContent);
+  db.prepare("insert into kv values('fix_pagin_photos','1')").run();
   const ins = db.prepare('insert into events(date,title,location,description,link) values(?,?,?,?,?)');
   for (const e of seedEvents) ins.run(e.date, e.title, e.location, e.description, e.link);
+}
+
+// One-time fix for installs seeded before the pagin portraits were swapped (laura.webp showed Louisa and vice versa).
+if (!db.prepare("select 1 from kv where key='fix_pagin_photos'").get()) {
+  const c = getContent();
+  if (c.media.laura === '/uploads/laura.webp' && c.media.louisa === '/uploads/louisa.webp') {
+    c.media.laura = '/uploads/louisa.webp';
+    c.media.louisa = '/uploads/laura.webp';
+    saveContent(c);
+  }
+  db.prepare("insert into kv values('fix_pagin_photos','1')").run();
 }
 
 if (process.env.ADMIN_USER && process.env.ADMIN_PASSWORD && !db.prepare('select 1 from users where username=?').get(process.env.ADMIN_USER)) {
